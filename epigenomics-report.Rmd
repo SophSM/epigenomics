@@ -5,13 +5,46 @@ date: "3/24/2022"
 output: html_document
 ---
 
+#### Blueprint pipeline
+
+Starting with fastq file from ChIP-seq experiment of H3K4me3 in erytrhoblasts. Mapping was performed with bwa 0.7.7 to the reference genome GRCh38. BAM files are sorted and duplicates were marked using picard. Data is filetered discarding unmapped reads and those with mapping quality less than 5 using samtools 0.1.19 and then re-filtered to remove PCR or optical duplicate reads. Fragment size is then modelled using a PhantomPeakQualTools R script. Peaks were called using MACS2 (2.0.10.20131216) using predicted fragment sizes and avoiding the -broad flag for H3K4me3 marks. bigWigs are produced using align2RawSignal using the fragment size predicted by PhantomPeakQualTools.
+
+#### Histone enrichment analysis
+
+We chose H3K4me3 because, since we are analysing these marks in erythrobalsts cells, which are precursor cells of erythrocytes, it would be interesting to see the landscape of the active genes in these pre-state cells. Since H3K4me3 is found in the 5' region of genes and is associated with transcriptional regions, then the analysis of these marks can be a useful tool for out landscape visualization.
+
+#### Data download and processing
+
+Downloading list of all interactions detected between active promoters and enhancers.
+
 ```{bash}
+qlogin
+cd /mnt/Timina/bioinfoII/ssalazar/epigenomics/data
 wget https://www.cell.com/cms/10.1016/j.cell.2016.09.037/attachment/5bc79f6f-1b69-4192-8cb8-4247cc2e0f39/mmc4.zip
 ```
 
-H3K4me3
 
-#### Blueprint pipeline
+Downloading signal files (bigWig) from bluePrint
+```{bash}
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002R5/erythroblast/ChIP-Seq/NCMLS/S002R5H1.ERX300721.H3K4me3.bwa.GRCh38.20150528.bw
 
-Starting with fastq file from ChIP-seq experiment of H3K4me3 in erytrhoblasts. Mapping was performed with bwa 0.7.7 to the reference genome GRCh38. BAM files are sorted and duplicates were marked using picard. Data is filetered discarding unmapped reads and those with mapping quality less than 5 using samtools 0.1.19 and then re-filtered to remove PCR or optical duplicate reads. Fragment size is then modelled using a PhantomPeakQualTools R script. Peaks were called using MACS2 (2.0.10.20131216) using predicted fragment sizes and avoiding the -broad flag for H3K4me3. marks. bigWigs are produced using align2RawSignal using the fragment size predicted by PhantomPeakQualTools.
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002S3/erythroblast/ChIP-Seq/NCMLS/S002S3H1.ERX300734.H3K4me3.bwa.GRCh38.20150528.bw
+
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002R5/erythroblast/ChIP-Seq/NCMLS/S002R5H1.ERX337057.Input.bwa.GRCh38.20150528.bw
+
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002S3/erythroblast/ChIP-Seq/NCMLS/S002S3H1.ERX337056.Input.bwa.GRCh38.20150528.bw
+```
+
+Filtering the interaction list and getting two different bed files, one for promoters 
+```{bash}
+grep "Ery" ActivePromoterEnhancerLinks.tsv | awk '{ print $1, $2, $3 }' | sed -e 's/ /\t/g' > promoters2Ery.bed
+
+
+```
+
+
+UCSC-executables/ucsv
+liftOver
+cadenas Hg19 al 38
+
 
