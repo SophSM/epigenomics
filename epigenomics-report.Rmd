@@ -12,3 +12,6 @@ wget https://www.cell.com/cms/10.1016/j.cell.2016.09.037/attachment/5bc79f6f-1b6
 H3K4me3
 
 #### Blueprint pipeline
+
+Starting with fastq file from ChIP-seq experiment of H3K4me3 in erytrhoblasts. Mapping was performed with bwa 0.7.7 to the reference genome GRCh38. BAM files are sorted and duplicates were marked using picard. Data is filetered discarding unmapped reads and those with mapping quality less than 5 using samtools 0.1.19 and then re-filtered to remove PCR or optical duplicate reads. Fragment size is then modelled using a PhantomPeakQualTools R script. Peaks were called using MACS2 (2.0.10.20131216) using predicted fragment sizes and avoiding the -broad flag for H3K4me3. marks. bigWigs are produced using align2RawSignal using the fragment size predicted by PhantomPeakQualTools.
+
