@@ -1,0 +1,14 @@
+---
+title: "epigenomics"
+author: "Sofia Salazar & Bruno Villalobos"
+date: "3/24/2022"
+output: html_document
+---
+
+```{bash}
+wget https://www.cell.com/cms/10.1016/j.cell.2016.09.037/attachment/5bc79f6f-1b69-4192-8cb8-4247cc2e0f39/mmc4.zip
+```
+
+H3K4me3
+
+#### Blueprint pipeline
