@@ -35,16 +35,28 @@ wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_
 wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002S3/erythroblast/ChIP-Seq/NCMLS/S002S3H1.ERX337056.Input.bwa.GRCh38.20150528.bw
 ```
 
-Filtering the interaction list and getting two different bed files, one for promoters 
+Filtering the interaction list and getting two different bed files, one for promoters and one for enhancers
 ```{bash}
-grep "Ery" ActivePromoterEnhancerLinks.tsv | awk '{ print $1, $2, $3 }' | sed -e 's/ /\t/g' > promoters2Ery.bed
+grep "Ery" ActivePromoterEnhancerLinks.tsv | awk '{ print $1, $2, $3 }' | sed -e 's/ /\t/g' > promotersEry.bed
 
-
+grep "Ery" ActivePromoterEnhancerLinks.tsv | awk '{ print $5, $6, $7 }' | sed -e 's/ /\t/g' > enhancersEry.bed
 ```
 
+We need to change the positions on the bed files since they are based on the GRCh37 reference genome version according to the article, and the bigWig files from Blueprint are based on the GRCh38 reference genome. 
 
-UCSC-executables/ucsv
-liftOver
-cadenas Hg19 al 38
+We first download the liftover chains to go from Hg19 to Hg38
+
+```{bash eval = F}
+wget https://hgdownload.cse.ucsc.edu/goldenpath/hg19/liftOver/hg19ToHg38.over.chain.gz
+```
+
+Then we use the `liftOver` tool from the UCSC module to do the conversion.
+
+```{bash eval = F}
+module load UCSC-executables/ucsc
+liftOver promotersEry.bed hg19ToHg38.over.chain.gz promoters38.bed promoters38Ery.bed
+liftOver enhancersEry.bed hg19ToHg38.over.chain.gz promoters38.bed enhancers38Ery.bed
+```
+
 
 
