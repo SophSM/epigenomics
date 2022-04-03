@@ -54,9 +54,41 @@ Then we use the `liftOver` tool from the UCSC module to do the conversion.
 
 ```{bash eval = F}
 module load UCSC-executables/ucsc
-liftOver promotersEry.bed hg19ToHg38.over.chain.gz promoters38.bed promoters38Ery.bed
-liftOver enhancersEry.bed hg19ToHg38.over.chain.gz promoters38.bed enhancers38Ery.bed
+liftOver promotersEry.bed hg19ToHg38.over.chain.gz promoters38.bed notpassed-promoters38Ery.bed
+liftOver enhancersEry.bed hg19ToHg38.over.chain.gz enhancers38.bed notpassed-enhancers38Ery.bed
 ```
 
+We get the regions that could be converted in files `promoters38.bed` and `enhancers38.bed` and the regions that had issues passed from one genome to another in the `notpassed-promoters38Ery.bed` and `notpassed-enhancers38Ery.bed` files. For both of the not passed files we have only two regions.
 
 
+#### Is there an enrichment for H3K4me3 histone in the promoters or in the enhancers?
+
+```{bash}
+mv S002R5H1.ERX300721.H3K4me3.bwa.GRCh38.20150528.bw H3K4me3-male.bw
+mv S002S3H1.ERX300734.H3K4me3.bwa.GRCh38.20150528.bw H3K4me3-female.bw
+mv S002R5H1.ERX337057.Input.bwa.GRCh38.20150528.bw input-male.bw
+mv S002S3H1.ERX337056.Input.bwa.GRCh38.20150528.bw input-female.bw
+```
+
+```{bash}
+bigWigMerge H3K4me3-male.bw H3K4me3-female.bw H3K4me3-merged.bedGraph
+bigWigMerge input-male.bw input-female.bw input-merged.bedGraph
+```
+
+```{bash}
+wget https://hgdownload.cse.ucsc.edu/goldenpath/hg38/bigZips/hg38.chrom.sizes
+awk 'NR!=1' H3K4me3-merged.bedGraph > headless-H3K4me3-merged.bedGraph
+sort -k1,1 -k2,2n headless-H3K4me3-merged.bedGraph | awk '{print $1,$2,$3,$4}' OFS="\t" > H3K4me3-sorted.bedGraph
+bedGraphToBigWig H3K4me3-sorted.bedGraph hg38.chrom.sizes H3K4me3.bw
+
+awk 'NR!=1' input-merged.bedGraph > headless-input-merged.bedGraph
+sort -k1,1 -k2,2n headless-input-merged.bedGraph | awk '{print $1,$2,$3,$4}' OFS="\t" > input-sorted.bedGraph
+bedGraphToBigWig input-sorted.bedGraph hg38.chrom.sizes input.bw
+```
+
+Reduce noise of bigwigs with input files
+```{bash}
+# bigwigCompare -b1 H3K4me3-merged.bw -b2 input-merged.bw -o noiselessH3K4me3.bw –outFileFormat “bigwig”
+```
+
+https://www.nature.com/articles/nature19362
