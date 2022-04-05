@@ -63,32 +63,54 @@ We get the regions that could be converted in files `promoters38.bed` and `enhan
 
 #### Is there an enrichment for H3K4me3 histone in the promoters or in the enhancers?
 
-```{bash}
+```{bash eval = F}
 mv S002R5H1.ERX300721.H3K4me3.bwa.GRCh38.20150528.bw H3K4me3-male.bw
 mv S002S3H1.ERX300734.H3K4me3.bwa.GRCh38.20150528.bw H3K4me3-female.bw
 mv S002R5H1.ERX337057.Input.bwa.GRCh38.20150528.bw input-male.bw
 mv S002S3H1.ERX337056.Input.bwa.GRCh38.20150528.bw input-female.bw
 ```
 
-```{bash}
+```{bash eval = F}
 bigWigMerge H3K4me3-male.bw H3K4me3-female.bw H3K4me3-merged.bedGraph
 bigWigMerge input-male.bw input-female.bw input-merged.bedGraph
 ```
 
-```{bash}
-wget https://hgdownload.cse.ucsc.edu/goldenpath/hg38/bigZips/hg38.chrom.sizes
+```{bash eval = F}
+wget https://www.encodeproject.org/files/GRCh38_EBV.chrom.sizes/@@download/GRCh38_EBV.chrom.sizes.tsv
 awk 'NR!=1' H3K4me3-merged.bedGraph > headless-H3K4me3-merged.bedGraph
-sort -k1,1 -k2,2n headless-H3K4me3-merged.bedGraph | awk '{print $1,$2,$3,$4}' OFS="\t" > H3K4me3-sorted.bedGraph
-bedGraphToBigWig H3K4me3-sorted.bedGraph hg38.chrom.sizes H3K4me3.bw
+sort -k1,1 -k2,2n headless-H3K4me3-merged.bedGraph > H3K4me3-sorted.bedGraph 
+awk '{print $1,$2,$3,$4}' OFS="\t" H3K4me3-sorted.bedGraph > H3K4me3-sorted2.bedGraph
+bedGraphToBigWig H3K4me3-sorted2.bedGraph GRCh38_EBV.chrom.sizes.tsv H3K4me3.bw
 
-awk 'NR!=1' input-merged.bedGraph > headless-input-merged.bedGraph
-sort -k1,1 -k2,2n headless-input-merged.bedGraph | awk '{print $1,$2,$3,$4}' OFS="\t" > input-sorted.bedGraph
-bedGraphToBigWig input-sorted.bedGraph hg38.chrom.sizes input.bw
+# awk 'NR!=1' input-merged.bedGraph > headless-input-merged.bedGraph
+# sort -k1,1 -k2,2n headless-input-merged.bedGraph > input-sorted.bedGraph
+# awk '{print $1,$2,$3,$4}' OFS="\t" input-sorted.bedGraph > input-sorted2.bedGraph
+# bedGraphToBigWig input-sorted2.bedGraph GRCh38_EBV.chrom.sizes.tsv input.bw
 ```
 
 Reduce noise of bigwigs with input files
-```{bash}
+```{bash eval = F}
 # bigwigCompare -b1 H3K4me3-merged.bw -b2 input-merged.bw -o noiselessH3K4me3.bw –outFileFormat “bigwig”
 ```
 
+
+Computing matrix with `deepTools`, using the `reference-point` sub-command since it refers to a position within a BED region and can plot us regions upstream and downstream of said position. In this case, we are using the promoters and the enhancers as reference positions, so we run this comand for each of these bed files.
+
+```{bash eval = F}
+module load deeptools/2.5.3
+computeMatrix reference-point -S H3K4me3.bw -R promoters38.bed --referencePoint center -a 2000 -b 2000 -o promoter-mat.tab.gz
+computeMatrix reference-point -S H3K4me3.bw -R enhancers38.bed --referencePoint center -a 2000 -b 2000 -o enhancer-mat.tab.gz
+```
+
+We also plot our matrix in a Heatmap to visualize possible enrichment
+
+```{bash eval = F}
+plotHeatmap -m promoter-mat.tab.gz -o promoter-heatmap.png
+plotHeatmap -m enhancer-mat.tab.gz -o enhancer-heatmap.png
+```
+
+
+
 https://www.nature.com/articles/nature19362
+https://deeptools.readthedocs.io/en/develop/content/tools/computeMatrix.html
+https://deeptools.readthedocs.io/en/develop/content/tools/plotHeatmap.html
