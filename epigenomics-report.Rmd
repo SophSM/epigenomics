@@ -70,47 +70,178 @@ mv S002R5H1.ERX337057.Input.bwa.GRCh38.20150528.bw input-male.bw
 mv S002S3H1.ERX337056.Input.bwa.GRCh38.20150528.bw input-female.bw
 ```
 
+
+Primero normalizar
+
 ```{bash eval = F}
-bigWigMerge H3K4me3-male.bw H3K4me3-female.bw H3K4me3-merged.bedGraph
-bigWigMerge input-male.bw input-female.bw input-merged.bedGraph
+bigwigCompare -b1 H3K4me3-female.bw -b2 input-female.bw -o norm-H3K4me3-female.bw
+bigwigCompare -b1 H3K4me3-male.bw -b2 input-male.bw -o norm-H3K4me3-male.bw
 ```
 
+Luego merge
+
+```{bash eval = F}
+bigWigMerge norm-H3K4me3-male.bw norm-H3K4me3-female.bw norm-H3K4me3-merged.bedGraph
+awk 'NR!=1' norm-H3K4me3-merged.bedGraph | sort -k1,1 -k2,2n > H3K4me3-sorted.bedGraph
+awk '{print $1,$2,$3,$4}' OFS="\t" H3K4me3-sorted.bedGraph > H3K4me3-sorted2.bedGraph
+```
+
+Make bigwig file
 ```{bash eval = F}
 wget https://www.encodeproject.org/files/GRCh38_EBV.chrom.sizes/@@download/GRCh38_EBV.chrom.sizes.tsv
-awk 'NR!=1' H3K4me3-merged.bedGraph > headless-H3K4me3-merged.bedGraph
-sort -k1,1 -k2,2n headless-H3K4me3-merged.bedGraph > H3K4me3-sorted.bedGraph 
-awk '{print $1,$2,$3,$4}' OFS="\t" H3K4me3-sorted.bedGraph > H3K4me3-sorted2.bedGraph
-bedGraphToBigWig H3K4me3-sorted2.bedGraph GRCh38_EBV.chrom.sizes.tsv H3K4me3.bw
-
-# awk 'NR!=1' input-merged.bedGraph > headless-input-merged.bedGraph
-# sort -k1,1 -k2,2n headless-input-merged.bedGraph > input-sorted.bedGraph
-# awk '{print $1,$2,$3,$4}' OFS="\t" input-sorted.bedGraph > input-sorted2.bedGraph
-# bedGraphToBigWig input-sorted2.bedGraph GRCh38_EBV.chrom.sizes.tsv input.bw
+bedGraphToBigWig H3K4me3-sorted2.bedGraph GRCh38_EBV.chrom.sizes.tsv H3K4me3-norm.bw
 ```
-
-Reduce noise of bigwigs with input files
-```{bash eval = F}
-# bigwigCompare -b1 H3K4me3-merged.bw -b2 input-merged.bw -o noiselessH3K4me3.bw –outFileFormat “bigwig”
-```
-
 
 Computing matrix with `deepTools`, using the `reference-point` sub-command since it refers to a position within a BED region and can plot us regions upstream and downstream of said position. In this case, we are using the promoters and the enhancers as reference positions, so we run this comand for each of these bed files.
 
 ```{bash eval = F}
-module load deeptools/2.5.3
-computeMatrix reference-point -S H3K4me3.bw -R promoters38.bed --referencePoint center -a 2000 -b 2000 -o promoter-mat.tab.gz
-computeMatrix reference-point -S H3K4me3.bw -R enhancers38.bed --referencePoint center -a 2000 -b 2000 -o enhancer-mat.tab.gz
+computeMatrix reference-point -S H3K4me3-norm.bw -R promoters38.bed --referencePoint center -a 2000 -b 2000 -o norm-promoter-mat.tab.gz
+computeMatrix reference-point -S H3K4me3-norm.bw -R enhancers38.bed --referencePoint center -a 2000 -b 2000 -o norm-enhancer-mat.tab.gz
+plotHeatmap -m norm-promoter-mat.tab.gz -o norm-promoter-heatmap.png
+plotHeatmap -m norm-enhancer-mat.tab.gz -o norm-enhancer-heatmap.png
 ```
 
-We also plot our matrix in a Heatmap to visualize possible enrichment
-
-```{bash eval = F}
-plotHeatmap -m promoter-mat.tab.gz -o promoter-heatmap.png
-plotHeatmap -m enhancer-mat.tab.gz -o enhancer-heatmap.png
+We then start our statistical tests and visualizations using R
+```{bash}
+module load r/3.5.2
+R
 ```
 
 
+```{r}
+promoter.data <- read.delim("norm-promoter-mat.tab.gz", skip=1, header = F)
+promoter.data <- promoter.data[,-c(1:6)]
+promoters.val<-vector()
+for (i in 1:9807) {
+row<-as.numeric(as.character(unlist(promoter.data[i,])))
+promoters.val<-append(promoters.val, median(row,na.rm=TRUE), after = length(promoters.val))
+}
+
+enhancer.data <- read.delim("norm-enhancer-mat.tab.gz", skip = 1, header = F)
+enhancer.data <- enhancer.data[,-c(1:6)]
+enhancers.val<-vector()
+for (i in 1:9807) {
+row<-as.numeric(as.character(unlist(enhancer.data[i,])))
+enhancers.val<-append(enhancers.val, median(row,na.rm=TRUE), after = length(enhancers.val))
+}
+```
+
+
+Testing normality 
+
+```{r}
+library("ggplot2")
+outdir = "/mnt/Timina/bioinfoII/ssalazar/epigenomics/out/"
+png(file = paste0(outdir, "qqplot-enhancers.png"))
+ggplot(as.data.frame(enhancers.val), aes(sample = enhancers.val) ) + stat_qq() + stat_qq_line() + labs(x = "Theoretical Quantiles", y = "Sample Quantiles", subtitle = "Enhancers' values")
+dev.off()
+
+png(file = paste0(outdir, "qqplot-promoters.png"))
+ggplot(as.data.frame(promoters.val), aes(sample = promoters.val) ) + stat_qq() + stat_qq_line() + labs(x = "Theoretical Quantiles", y = "Sample Quantiles", subtitle = "Promoters' values")
+dev.off()
+
+```
+
+Using Shapiro-Wilk’s method, taking a sample of random values from each vector of values, since this test's maximum sample size is 5000.
+http://www.sthda.com/english/wiki/normality-test-in-r
+```{r}
+sample.enhancers <- sample(enhancers.val, 5000)
+shapiro.test(sample.enhancers)
+#
+# Shapiro-Wilk normality test
+#
+# data:  sample.enhancers
+# W = 0.5409, p-value < 2.2e-16
+
+sample.promoters <- sample(promoters.val, 5000)
+shapiro.test(sample.promoters)
+#
+# Shapiro-Wilk normality test
+#
+# data:  sample.promoters
+# W = 0.92959, p-value < 2.2e-16
+```
+
+The Shapiro-Wilk test returns a p-value of 2.2e-16 for both enhancers and promoters.
+
+Now testing for the whole sample size with the Adison-Darling Test
+```{r}
+install.packages('nortest')
+library(nortest)
+ad.test(promoters.val)
+ad.test(enhancers.val)
+```
+
+The Adison-Darling test also returns a p-value of 2.2e-16 for both enhancers and promoters. Therefore we conclude the data is not normal.
+
+Now that we know that we can't assume our data is normal, we can perform a hypothesis test in order to know if histone H3K4me3 is more enriched in promoters or in enhancers. In order to do that, we are using a the Mann–Whitney–Wilcoxon, a non-parametric test which is used to compare between the average of two dependent samples (Amat, 2017) in this case, the enhancers and promoters' values for H3K4me3 enrichment. This test is useful as an alternative for the t-student test when we can't assume normality. The null hypothesis is that both sample's averages are the same.
+
+First we test against a non-directional alternative that averages are not the same
+```{r}
+wilcox.test(promoters.val, enhancers.val, paired = F)
+#
+# Wilcoxon signed rank test with continuity correction
+#
+# data:  promoters.val and enhancers.val
+# V = 44478662, p-value < 2.2e-16
+# alternative hypothesis: true location shift is not equal to 0
+```
+Since the p-value is < 2.2e-16, we have enough evidence to reject the hypothesis that enrichment is equal for promoters and enhancers. Now, we test against the alternative hypothesis that H3K4me3 is more enriched in promoters, as according to Liu et.al (2016), this modification occurs consistently at transcription start sites.
+
+```{r}
+wilcox.test(promoters.val, enhancers.val, paired = F, alternative = "greater")
+#
+# Wilcoxon rank sum test with continuity correction
+#
+# data:  promoters.val and enhancers.val
+# W = 80939100, p-value < 2.2e-16
+# alternative hypothesis: true location shift is greater than 0
+```
+
+The p-value is also less than 2.2e-16, which tells us finally that we have evidence that H3K4me3 is more enriched in promoters than in enhancers, as consistent with literature.
+
+
+```{r}
+sessionInfo()
+# R version 3.5.2 (2018-12-20)
+# Platform: x86_64-pc-linux-gnu (64-bit)
+# Running under: CentOS Linux 7 (Core)
+
+# Matrix products: default
+# BLAS: /cm/shared/apps/r/3.5.2-studio/lib64/R/lib/libRblas.so
+# LAPACK: /cm/shared/apps/r/3.5.2-studio/lib64/R/lib/libRlapack.so
+
+#locale:
+ #[1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ #[3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ #[5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ #[7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ #[9] LC_ADDRESS=C               LC_TELEPHONE=C            
+ #[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+# attached base packages:
+# [1] stats     graphics  grDevices utils     datasets  methods   base     
+
+# other attached packages:
+# [1] ggplot2_3.1.0
+
+# loaded via a namespace (and not attached):
+ # [1] Rcpp_1.0.0       withr_2.1.2      crayon_1.3.4     dplyr_0.7.8     
+ # [5] assertthat_0.2.0 grid_3.5.2       plyr_1.8.4       R6_2.3.0        
+ # [9] gtable_0.2.0     magrittr_1.5     scales_1.0.0     pillar_1.3.1    
+# [13] rlang_0.3.1      lazyeval_0.2.1   bindrcpp_0.2.2   labeling_0.3    
+# [17] glue_1.3.0       purrr_0.2.5      munsell_0.5.0    compiler_3.5.2  
+# [21] pkgconfig_2.0.2  colorspace_1.4-0 tidyselect_0.2.5 bindr_0.1.1     
+# [25] tibble_2.0.1    
+
+```
+
+
+Amat, J. (2017). Test de Wilcoxon Mann Whitney como alternativa al t-test. Retrieved from: https://www.cienciadedatos.net/documentos/17_mann%E2%80%93whitney_u_test
 
 https://www.nature.com/articles/nature19362
 https://deeptools.readthedocs.io/en/develop/content/tools/computeMatrix.html
 https://deeptools.readthedocs.io/en/develop/content/tools/plotHeatmap.html
+https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/wilcox.test
+
+
