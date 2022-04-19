@@ -92,7 +92,7 @@ wget https://www.encodeproject.org/files/GRCh38_EBV.chrom.sizes/@@download/GRCh3
 bedGraphToBigWig H3K4me3-sorted2.bedGraph GRCh38_EBV.chrom.sizes.tsv H3K4me3-norm.bw
 ```
 
-Computing matrix with `deepTools`, using the `reference-point` sub-command since it refers to a position within a BED region and can plot us regions upstream and downstream of said position. In this case, we are using the promoters and the enhancers as reference positions, so we run this comand for each of these bed files.
+Computing matrix with `deepTools`, using the `reference-point` sub-command since it refers to a position within a BED region and can plot us regions upstream and downstream of said position. In this case, we are using the promoters and the enhancers as reference positions, so we run this command for each of these bed files.
 
 ```{bash eval = F}
 computeMatrix reference-point -S H3K4me3-norm.bw -R promoters38.bed --referencePoint center -a 2000 -b 2000 -o norm-promoter-mat.tab.gz
@@ -199,6 +199,48 @@ wilcox.test(promoters.val, enhancers.val, paired = F, alternative = "greater")
 ```
 
 The p-value is also less than 2.2e-16, which tells us finally that we have evidence that H3K4me3 is more enriched in promoters than in enhancers, as consistent with literature.
+
+#### What Transcription factors are enriched in both sets of sequences?
+
+First we have to merge our bed files containing the interest regions of both enhancers and promoters. We can use the bedops module for the needed task.
+
+```{bash eval = F}
+module load bedops/2.4.20
+```
+
+For the merge command to work appropriately, our bed files have to be sorted in lexicographic order (is more efficient to process and compare data in this arrangement), which can be checked by inspecting both files.
+
+```{bash eval = F}
+less promoters38.bed
+less enhancers38.bed
+```
+
+The files are already sorted, but if that weren't the case we could sort them by using bedops as follows:
+
+```{bash eval = F}
+bedops sort-bed promoters38.bed
+bedops sort-bed enhancers38.bed
+```
+
+We the can merge them into one, extending the interest regions and joining where they overlap in both files.
+
+```{bash eval = F}
+bedops --merge promoters38.bed enhancers38.bed > merged_tf_regions.bed
+```
+
+Now we can download the file into our PC to upload it to the RSAT web tool.
+```{bash}
+rsync -rptuvl bvillalobos@dna.lavis.unam.mx:/mnt/Timina/bioinfoII/bvillalobos/epigenomics/merged_tf_regions.bed ./
+```
+
+In RSAT, selecting the metazoa options, we go to the "sequence tools" section and select “Fetch sequences from UCSC”. We set to hg38 for the reference genome and we upload the merged_tf_regions.bed file. 
+As an output we get a fasta file with the sequences required, and we use the link given by RSAT to download it to the cluster. 
+
+```{bash eval = F}
+wget http://rsat.sb-roscoff.fr//tmp/apache/2022/04/19/merged_tf_regions_o5ox_20
+```
+
+
 
 
 ```{r}
