@@ -240,8 +240,48 @@ As an output we get a fasta file with the sequences required, and we use the lin
 wget http://rsat.sb-roscoff.fr//tmp/apache/2022/04/19/merged_tf_regions_o5ox_20
 ```
 
+Now we continue to download the motif matrices in Jaspar. We select the CORE collection, which is non redundant. And by going to advanced settings we mark Homo sapiens, all classes, latest version, vertebrates, ChIP-seq data, and all families. 
+We then obtain links for the combined and permuted matrices (which serve as back model) and we download it to the cluster. 
+
+```{bash eval = F}
+wget http://jaspar.genereg.net/temp/20220419220625_JASPAR2022_combined_matrices_9010_meme.txt
+wget http://jaspar.genereg.net/temp/20220419221440_permuted_matrices_9010.txt
+
+mv 20220419220625_JASPAR2022_combined_matrices_9010_meme.txt matrices_jaspar_meme.txt
+mv 20220419221440_permuted_matrices_9010.txt  permuted_matrices_jaspar_meme.txt
+
+```
+
+And now we have everything needed for the matrix scan.
+```{bash eval = F}
+module load rsat/8sep2021
+
+matrix-scan -m matrices_jaspar_meme.txt -matrix_format meme -i merged_tf_regions.fasta -bgfile permuted_matrices_jaspar_meme.txt -bg_format meme -o matrix-scan-tf
+
+matrix-scan -m matrices_jaspar_meme.txt -matrix_format meme -i merged_tf_regions.fasta -bginput -markov 0 -o matrix-scan-tf 
+
+```
+
+For reasons that we could not determine, the model with the permuted matrices as background model didn't run. But there's is an option with a Markov model, which can also be used as a null model. 
+Once obtained a result with the matrix scan, which had several time-like problems and had to be stopped at some point (had been running for 5 days). The output had at last given us a result of the sequences analysed, and a weight which is equal to the logarithm of the quotient of the probabilities of the sequences coming from the JASPAR motifs over the sequences coming from the background model. 
+This therefore can be used as a statistic to determine the number of sites that were significantly enriched. 
+To reduce false postives, we can only include sequences with length greater than 20, and with a weight greater than 22 according to a False Positive reduction statistic (inspired in Bonferroni). 
+
+```{bash eval = F}
+awk '{if(($6 - $5)> 20 && $8>22) print ($3)}'  matrix-scan-tf-res | uniq > result-mat.txt
+```
+
+As the we run out of time, the code is still running, (we had several problems due to qsub errors, cluster failure, disk capacity exceeded, etc). But now we have the previous document being generated with all the significant TFBS in it. 
+To count them and later associate to save the names we can use 
+```{bash}
+wc -l result-mat.txt
+grep -f result-mat.txt matrices_jaspar_meme.txt | cut -d "." -f 4 >> tfbs-sign.txt
+less tfbs-sign.txt
+```
 
 
+Conclusion: 
+When having bed files, we can use several tools,such as rsat to transform the genome regions into fasta files. Depending in our interest, we then can compare and analyze the data with some other tools, in this case we used JASPAR data base to find transcription factors binding site enrichment in the regions that the bed files of the study stated; being able then to prove that the regions had indeed transcription relevance, going in line with the fact that the data came from a promoter-enhancer study. 
 
 ```{r}
 sessionInfo()
@@ -286,4 +326,10 @@ https://deeptools.readthedocs.io/en/develop/content/tools/computeMatrix.html
 https://deeptools.readthedocs.io/en/develop/content/tools/plotHeatmap.html
 https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/wilcox.test
 
+
+https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#merge-m-merge
+https://www.biostars.org/p/64687/
+https://www.biostars.org/p/227685/
+http://rsat.sb-roscoff.fr/distrib/tutorial_shell_rsat.pdf
+http://rsat.sb-roscoff.fr/help.matrix-scan.html
 
