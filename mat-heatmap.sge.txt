@@ -1,0 +1,31 @@
+#!/bin/bash
+# Use current working directory
+#$ -cwd
+#
+# Join stdout and stderr
+#$ -j y
+#
+# Run job through bash shell
+#$ -S /bin/bash
+#
+#You can edit the script since this line
+#
+# Your job name
+#$ -N matheatmaps
+#
+# Send an email after the job has finished
+#$ -m e
+#$ -M sogusama02@gmail.com
+#
+#
+# If modules are needed, source modules environment (Do not delete the next line):
+. /etc/profile.d/modules.sh
+#
+# Add any modules you might require:
+module load deeptools/2.5.3
+#
+# Write your commands in the next line
+computeMatrix reference-point -S H3K4me3.bw -R promoters38.bed --referencePoint center -a 2000 -b 2000 -o /mnt/Timina/bioinfoII/ssalazar/epigenomics/out/promoter-mat.tab.gz
+computeMatrix reference-point -S H3K4me3.bw -R enhancers38.bed --referencePoint center -a 2000 -b 2000 -o /mnt/Timina/bioinfoII/ssalazar/epigenomics/out/enhancer-mat.tab.gz
+plotHeatmap -m /mnt/Timina/bioinfoII/ssalazar/epigenomics/out/promoter-mat.tab.gz -o /mnt/Timina/bioinfoII/ssalazar/epigenomics/out/promoter-heatmap.png
+plotHeatmap -m /mnt/Timina/bioinfoII/ssalazar/epigenomics/out/enhancer-mat.tab.gz -o /mnt/Timina/bioinfoII/ssalazar/epigenomics/out/enhancer-heatmap.png

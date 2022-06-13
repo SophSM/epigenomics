@@ -1,0 +1,29 @@
+#!/bin/bash
+# Use current working directory
+#$ -cwd
+#
+# Join stdout and stderr
+#$ -j y
+#
+# Run job through bash shell
+#$ -S /bin/bash
+#
+#You can edit the script since this line
+#
+# Your job name
+#$ -N bigWigDownload
+#
+# Send an email after the job has finished
+#$ -m e
+#$ -M sogusama02@gmail.com
+#
+#
+# If modules are needed, source modules environment (Do not delete the next line):
+. /etc/profile.d/modules.sh
+#
+# Add any modules you might require:
+#
+# Write your commands in the next line
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002S3/erythroblast/ChIP-Seq/NCMLS/S002S3H1.ERX300734.H3K4me3.bwa.GRCh38.20150528.bw
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002R5/erythroblast/ChIP-Seq/NCMLS/S002R5H1.ERX337057.Input.bwa.GRCh38.20150528.bw
+wget http://ftp.ebi.ac.uk/pub/databases/blueprint/data/homo_sapiens/GRCh38/cord_blood/S002S3/erythroblast/ChIP-Seq/NCMLS/S002S3H1.ERX337056.Input.bwa.GRCh38.20150528.bw

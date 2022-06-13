@@ -1,0 +1,35 @@
+#!/bin/bash
+# Use current working directory
+#$ -cwd
+#
+# Join stdout and stderr
+#$ -j y
+#
+# Run job through bash shell
+#$ -S /bin/bash
+#
+#You can edit the script since this line
+#
+# Your job name
+#$ -N mergebw
+#
+# Send an email after the job has finished
+#$ -m e
+#$ -M sogusama02@gmail.com
+#
+#
+# If modules are needed, source modules environment (Do not delete the next line):
+. /etc/profile.d/modules.sh
+#
+# Add any modules you might require:
+module load UCSC-executables/ucsc
+#
+# Write your commands in the next line
+awk 'NR!=1' H3K4me3-merged.bedGraph > headless-H3K4me3-merged.bedGraph
+sort -k1,1 -k2,2n headless-H3K4me3-merged.bedGraph > H3K4me3-sorted.bedGraph 
+awk '{print $1,$2,$3,$4}' OFS="\t" H3K4me3-sorted.bedGraph > H3K4me3-sorted2.bedGraph
+bedGraphToBigWig H3K4me3-sorted2.bedGraph hg38.chrom.sizes H3K4me3.bw
+awk 'NR!=1' input-merged.bedGraph > headless-input-merged.bedGraph
+sort -k1,1 -k2,2n headless-input-merged.bedGraph > input-sorted.bedGraph
+awk '{print $1,$2,$3,$4}' OFS="\t" input-sorted.bedGraph > input-sorted2.bedGraph
+bedGraphToBigWig input-sorted2.bedGraph hg38.chrom.sizes input.bw
