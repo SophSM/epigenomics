@@ -248,6 +248,88 @@ wilcox.test(promoters.val, enhancers.val, paired = F, alternative = "greater")
 
 The p-value is also less than 2.2e-16, which tells us finally that we have evidence that H3K4me3 is more enriched in promoters than in enhancers.
 
+#### What Transcription factors are enriched in both sets of sequences?
+
+First we have to merge our bed files containing the interest regions of both enhancers and promoters. We can use the bedops module for the needed task.
+
+```{bash eval = F}
+module load bedops/2.4.20
+```
+
+For the merge command to work appropriately, our bed files have to be sorted in lexicographic order (is more efficient to process and compare data in this arrangement), which can be checked by inspecting both files.
+
+```{bash eval = F}
+less promoters38.bed
+less enhancers38.bed
+```
+
+The files are already sorted, but if that weren't the case we could sort them by using bedops as follows:
+
+```{bash eval = F}
+bedops sort-bed promoters38.bed
+bedops sort-bed enhancers38.bed
+```
+
+We the can merge them into one, extending the interest regions and joining where they overlap in both files.
+
+```{bash eval = F}
+bedops --merge promoters38.bed enhancers38.bed > merged_tf_regions.bed
+```
+
+Now we can download the file into our PC to upload it to the RSAT web tool.
+```{bash}
+rsync -rptuvl bvillalobos@dna.lavis.unam.mx:/mnt/Timina/bioinfoII/bvillalobos/epigenomics/merged_tf_regions.bed ./
+```
+
+In RSAT, selecting the metazoa options, we go to the "sequence tools" section and select “Fetch sequences from UCSC”. We set to hg38 for the reference genome and we upload the merged_tf_regions.bed file. 
+As an output we get a fasta file with the sequences required, and we use the link given by RSAT to download it to the cluster. 
+
+```{bash eval = F}
+wget http://rsat.sb-roscoff.fr//tmp/apache/2022/04/19/merged_tf_regions_o5ox_20
+```
+
+Now we continue to download the motif matrices in Jaspar. We select the CORE collection, which is non redundant. And by going to advanced settings we mark Homo sapiens, all classes, latest version, vertebrates, ChIP-seq data, and all families. 
+We then obtain links for the combined and permuted matrices (which serve as back model) and we download it to the cluster. 
+
+```{bash eval = F}
+wget http://jaspar.genereg.net/temp/20220419220625_JASPAR2022_combined_matrices_9010_meme.txt
+wget http://jaspar.genereg.net/temp/20220419221440_permuted_matrices_9010.txt
+
+mv 20220419220625_JASPAR2022_combined_matrices_9010_meme.txt matrices_jaspar_meme.txt
+mv 20220419221440_permuted_matrices_9010.txt  permuted_matrices_jaspar_meme.txt
+
+```
+
+And now we have everything needed for the matrix scan.
+```{bash eval = F}
+module load rsat/8sep2021
+
+matrix-scan -m matrices_jaspar_meme.txt -matrix_format meme -i merged_tf_regions.fasta -bgfile permuted_matrices_jaspar_meme.txt -bg_format meme -o matrix-scan-tf
+
+matrix-scan -m matrices_jaspar_meme.txt -matrix_format meme -i merged_tf_regions.fasta -bginput -markov 0 -o matrix-scan-tf 
+
+```
+
+For reasons that we could not determine, the model with the permuted matrices as background model didn't run. But there's is an option with a Markov model, which can also be used as a null model. 
+Once obtained a result with the matrix scan, which had several time-like problems and had to be stopped at some point (had been running for 5 days). The output had at last given us a result of the sequences analysed, and a weight which is equal to the logarithm of the quotient of the probabilities of the sequences coming from the JASPAR motifs over the sequences coming from the background model. 
+This therefore can be used as a statistic to determine the number of sites that were significantly enriched. 
+To reduce false postives, we can only include sequences with length greater than 20, and with a weight greater than 22 according to a False Positive reduction statistic (inspired in Bonferroni). 
+
+```{bash eval = F}
+awk '{if(($6 - $5)> 20 && $8>22) print ($3)}'  matrix-scan-tf-res | uniq > result-mat.txt
+```
+
+As the we run out of time, the code is still running, (we had several problems due to qsub errors, cluster failure, disk capacity exceeded, etc). But now we have the previous document being generated with all the significant TFBS in it. 
+To count them and later associate to save the names we can use 
+```{bash}
+wc -l result-mat.txt
+grep -f result-mat.txt matrices_jaspar_meme.txt | cut -d "." -f 4 >> tfbs-sign.txt
+less tfbs-sign.txt
+```
+
+
+Conclusion: 
+When having bed files, we can use several tools,such as rsat to transform the genome regions into fasta files. Depending in our interest, we then can compare and analyze the data with some other tools, in this case we used JASPAR data base to find transcription factors binding site enrichment in the regions that the bed files of the study stated; being able then to prove that the regions had indeed transcription relevance, going in line with the fact that the data came from a promoter-enhancer study. 
 
 ```{r eval = F}
 sessionInfo()
@@ -427,4 +509,10 @@ TradersStudio. (n.d). Prueba de Bonferroni. Retrieved from: https://traders.stud
 Van Helden, J. (2016). Regulatory Sequence Analysis Tools (RSAT)
 Tutorial: command-line utilization of the tools. Retrieved from: http://rsat.sb-roscoff.fr/distrib/tutorial_shell_rsat.pdf
 
+
+https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#merge-m-merge
+https://www.biostars.org/p/64687/
+https://www.biostars.org/p/227685/
+http://rsat.sb-roscoff.fr/distrib/tutorial_shell_rsat.pdf
+http://rsat.sb-roscoff.fr/help.matrix-scan.html
 
